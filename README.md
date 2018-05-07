@@ -1,6 +1,9 @@
 # WeChatAlarm
 
+## alarm 是已经编译好的文件可直接运行
+
 > 这是一个用来做微信报警的应用
+
 
 > 示例
 ![Alt text](cut.jpeg)
