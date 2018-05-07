@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"os"
 	"encoding/json"
-	"reflect"
 	"time"
 	"github.com/BurntSushi/toml"
 )
@@ -36,11 +35,10 @@ func main () {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	fmt.Println(config)
-	http.HandleFunc("/" , alarm)
-	http.ListenAndServe(":"+config.HttpPort , nil)
-	fmt.Println("服务器已启动监听端口为:" + config.HttpPort)
 
+	http.HandleFunc("/" , alarm)
+	fmt.Println("服务器已启动监听端口为:" + config.HttpPort)
+	http.ListenAndServe(":"+config.HttpPort , nil)
 }
 
 func alarm (w http.ResponseWriter , r *http.Request) {
@@ -128,7 +126,6 @@ func postReq (url , reqBody string) (string , error) {
 func  getAccessToken () string {
 	url := "https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=" + config.Appid + "&secret=" + config.Secret
 	if accessToken == nil || (time.Now().Unix() - accessToken.CreateTime) > 7000 {
-		//fmt.Println(accessToken)
 		accessToken = new(AccessToken)
 		res , err := postReq(url , "")
 
@@ -137,7 +134,6 @@ func  getAccessToken () string {
 			os.Exit(0)
 		}
 
-		fmt.Println(reflect.TypeOf(res))
 		var t map[string]interface{}
 		json.Unmarshal([]byte(res) , &t)
 		accessToken.Token = fmt.Sprintf("%s" , t["access_token"])
@@ -146,6 +142,6 @@ func  getAccessToken () string {
 	}
 
 	fmt.Println("当前Token为：" , accessToken.Token)
-	fmt.Printf("过期时间还有：%d秒" , 7200 - (time.Now().Unix() - accessToken.CreateTime))
+	fmt.Printf("过期时间还有：%d秒\r\n" , 7200 - (time.Now().Unix() - accessToken.CreateTime))
 	return accessToken.Token
 }
