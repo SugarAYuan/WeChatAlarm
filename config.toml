@@ -1,0 +1,12 @@
+#http监听的服务器端口
+HttpPort = "9200"
+#微信APPID
+Appid = "xxxxx"
+#微信SECRET
+Secret = "xxxx"
+#报警发送模板消息ID
+TemplateID = "xxxxxxxx"
+
+#报警组成员
+[Openids]
+    username = "openid"
