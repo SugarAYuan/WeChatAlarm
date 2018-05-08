@@ -46,13 +46,23 @@ func alarm (w http.ResponseWriter , r *http.Request) {
 	sendUserStr := r.PostForm.Get("user")
 	message := r.Form.Get("message")
 	users := strings.Split(sendUserStr , ",")
-	fmt.Println(users , message)
 
+	re := make(map[string]string)
+	//查找用户发送报警
 	for _ , u := range users {
 		if config.Openids[u] != "" {
-			sendTmplete(config.Openids[u] , message)
+			//发送
+			e , _ := sendTmplete(config.Openids[u] , message)
+			//发送结果记录
+			re[u] = e
 		}
 	}
+	b , err := json.Marshal(re)
+	if err != nil {
+		fmt.Fprintf(w , "error")
+	}
+	//返回发送结果
+	fmt.Fprintf(w , string(b))
 }
 func sendTmplete (openid , sendMsg string) (string , error) {
 
