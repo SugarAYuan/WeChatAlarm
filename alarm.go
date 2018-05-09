@@ -12,22 +12,36 @@ import (
 )
 
 type AccessToken struct {
-	Token string `json:access_token`
-	ExpiresIn int `json:expires_in`
+	Token string `json:"access_token"`
+	ExpiresIn int `json:"expires_in"`
 	CreateTime int64
 }
 
 type Config struct {
-	HttpPort string `toml:HttpPort`
+	HttpPort string `toml:"HttpPort"`
 	Appid string `toml:"Appid"`
 	Secret string `toml:"Secret"`
-	TemplateID string `toml:"TemplateID"`
+	TemplateIDs map[string]string `toml:"TemplateIDs"`
 	Openids map[string]string `toml:"Openids"`
+}
+
+type sendTemplateData struct {
+	Touser string `json:"touser"`
+	TemplateId string `json:"template_id"`
+	Url string `json:"url"`
+	Data map[string]map[string]string `json:"data"`
+}
+
+type requestData struct {
+	User string `json:"user"`
+	Message map[string]string `json:"message"`
+	TemplateKey string `json:"template_key"`
+	Url string `json:"url"`
 }
 
 var accessToken *AccessToken
 var config *Config
-
+var templateResult map[string]map[string]map[string]string
 func main () {
 
 	config = new(Config)
@@ -35,6 +49,13 @@ func main () {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	//获取所有模板
+	templateData , err := ioutil.ReadFile("./template.json")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(2)
+	}
+	json.Unmarshal([]byte(templateData) , &templateResult)
 
 	http.HandleFunc("/" , alarm)
 	fmt.Println("服务器已启动监听端口为:" + config.HttpPort)
@@ -42,17 +63,29 @@ func main () {
 }
 
 func alarm (w http.ResponseWriter , r *http.Request) {
-	r.ParseForm()//解析参数
-	sendUserStr := r.PostForm.Get("user")
-	message := r.Form.Get("message")
-	users := strings.Split(sendUserStr , ",")
+	//解析发送过来的json数据
+	requestData := new(requestData)
+	err := json.NewDecoder(r.Body).Decode(requestData)
+	users := strings.Split(requestData.User , ",")
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	//获取模板ID
+	templateID := config.TemplateIDs[requestData.TemplateKey]
+	//解析发送过来的message
+	for k , v := range requestData.Message {
+		templateResult[templateID][k]["value"] = v
+	}
 
 	re := make(map[string]string)
 	//查找用户发送报警
 	for _ , u := range users {
 		if config.Openids[u] != "" {
 			//发送
-			e , _ := sendTmplete(config.Openids[u] , message)
+			e , _ := sendTmplete(config.Openids[u] , templateID , requestData.Url)
 			//发送结果记录
 			re[u] = e
 		}
@@ -64,28 +97,22 @@ func alarm (w http.ResponseWriter , r *http.Request) {
 	//返回发送结果
 	fmt.Fprintf(w , string(b))
 }
-func sendTmplete (openid , sendMsg string) (string , error) {
-
-	reqBody := `
-	{
-	   "touser":"`+ openid +`",
-	   "template_id":"`+config.TemplateID+`",
-		  
-	   "data":{
-			   "first": {
-				   "value":"`+sendMsg+`",
-				   "color":"#173177"
-			   },
-			   "remark":{
-				   "value":"点击查看详情！",
-				   "color":"#173177"
-			   }
-	   }
+func sendTmplete (openid , templateID , backUrl string) (string , error) {
+	//解析模板消息
+	sendTemplateData := new(sendTemplateData)
+	sendTemplateData.Touser = openid
+	sendTemplateData.TemplateId = templateID
+	sendTemplateData.Url = backUrl
+	sendTemplateData.Data = templateResult[templateID]
+	reqBody , err := json.Marshal(sendTemplateData)
+	if err != nil {
+		fmt.Println(err)
+		return "" , err
 	}
-`
+	fmt.Println(string(reqBody))
 	token := getAccessToken()
 	url := "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token=" + token
-	res , err  := postReq(url , reqBody)
+	res , err  := postReq(url , string(reqBody))
 	return res , err
 }
 
